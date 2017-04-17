@@ -50,6 +50,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)GameServerPlatform\GameServerTicketStatus.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)GameServerPlatform\GameVariant.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)GameServerPlatform\QualityOfServiceServer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)HttpRequestHandler.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)IHttpRequestHandler.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Leaderboard\LeaderboardStatType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Privacy\IPrivacyService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Privacy\Models\PrivacySettingsRequest.cs" />

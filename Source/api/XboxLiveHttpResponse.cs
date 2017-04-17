@@ -25,9 +25,9 @@ namespace Microsoft.Xbox.Services
 
         public Dictionary<string, string> Headers { get; private set; }
 
-        public byte[] ResponseBodyVector { get; private set; }
+        public byte[] ResponseBodyVector { get; internal set; }
 
-        public string ResponseBodyString { get; private set; }
+        public string ResponseBodyString { get; internal set; }
 
         public HttpWebResponse response;
 

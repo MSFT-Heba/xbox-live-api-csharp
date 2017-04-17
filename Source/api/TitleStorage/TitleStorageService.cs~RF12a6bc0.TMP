@@ -16,7 +16,7 @@ namespace Microsoft.Xbox.Services.TitleStorage
     public class TitleStorageService: ITitleStorageService
     {
         private readonly XboxLiveAppConfiguration appConfig;
-        internal static readonly Uri TitleStorageBaseUri = new Uri("https://titlestorage.xboxlive.com");
+        private static readonly Uri TitleStorageBaseUri = new Uri("https://titlestorage.xboxlive.com");
 
         private const string TitleStorageApiContract = "1";
         private const string ContentTypeHeaderValue = "application/octet-stream";
@@ -42,11 +42,11 @@ namespace Microsoft.Xbox.Services.TitleStorage
         /// <summary>
         /// Initializes a new instance of <see cref="TitleStorageService"/> class.
         /// </summary>
-        internal TitleStorageService(IHttpRequestHandler httpRequestHandler, XboxLiveAppConfiguration appConfiguration)
+        /// <param name="appConfig">Xbox Live App Configuration</param>
+        public TitleStorageService(IHttpRequestHandler httpRequestHandler)
         {
             this.appConfig = XboxLive.Instance.AppConfig;
             this.HttpRequestHandler = httpRequestHandler;
-            this.appConfig = appConfiguration;
         }
 
         /// <summary>
@@ -60,10 +60,10 @@ namespace Microsoft.Xbox.Services.TitleStorage
         public Task<TitleStorageQuota> GetQuotaAsync(XboxLiveUser user, TitleStorageType storageType)
         {
             var subQuery = this.GetTitleStorageSubpath(user, storageType);
-            var httpRequest = this.HttpRequestHandler.Create(HttpMethod.Get, TitleStorageBaseUri.ToString(), subQuery);
+            var httpRequest = XboxLiveHttpRequest.Create(HttpMethod.Get, TitleStorageBaseUri.ToString(), subQuery);
             httpRequest.ContractVersion = TitleStorageApiContract;
 
-            return this.HttpRequestHandler.GetResponseWithAuth(httpRequest, user).ContinueWith(
+            return httpRequest.GetResponseWithAuth(user).ContinueWith(
                 responseTask => this.HandleStorageQuoteResponse(responseTask, storageType));
         }
 
@@ -105,12 +105,12 @@ namespace Microsoft.Xbox.Services.TitleStorage
                 return Task.FromResult<object>(null);
             }
 
-            var httpRequest = this.HttpRequestHandler.Create(HttpMethod.Delete, TitleStorageBaseUri.ToString(), subPathAndQueryResult);
+            var httpRequest = XboxLiveHttpRequest.Create(HttpMethod.Delete, TitleStorageBaseUri.ToString(), subPathAndQueryResult);
             httpRequest.ContractVersion = TitleStorageApiContract;
             httpRequest.ContentType = ContentTypeHeaderValue;
             
-            this.SetEtagHeader(httpRequest, blobMetadata.ETag, eTagMatchCondition);
-            return this.HttpRequestHandler.GetResponseWithAuth(httpRequest, user).ContinueWith(responseTask =>
+            SetEtagHeader(httpRequest, blobMetadata.ETag, eTagMatchCondition);
+            return httpRequest.GetResponseWithAuth(user).ContinueWith(responseTask =>
             {
                 if (responseTask.Result.ErrorCode != 0)
                 {
@@ -152,19 +152,19 @@ namespace Microsoft.Xbox.Services.TitleStorage
 
             while (isDownloading)
             {
-                var httpRequest = this.HttpRequestHandler.Create(HttpMethod.Get, TitleStorageBaseUri.ToString(), subPathAndQueryResult);
+                var httpRequest = XboxLiveHttpRequest.Create(HttpMethod.Get, TitleStorageBaseUri.ToString(), subPathAndQueryResult);
                 httpRequest.ContractVersion = TitleStorageApiContract;
                 httpRequest.ContentType = ContentTypeHeaderValue;
                 httpRequest.longHttpCall = true;
 
-                this.SetEtagHeader(httpRequest, blobMetadata.ETag, blobQueryProperties.ETagMatchCondition);
+                SetEtagHeader(httpRequest, blobMetadata.ETag, blobQueryProperties.ETagMatchCondition);
 
                 if (isBinaryData)
                 {
-                    this.HttpRequestHandler.SetRangeHeader(httpRequest, startByte, startByte + preferredDownloadBlockSize);
+                    httpRequest.SetRangeHeader(startByte, startByte + preferredDownloadBlockSize);
                 }
 
-                this.HttpRequestHandler.GetResponseWithAuth(httpRequest, user).ContinueWith(responseTask =>
+                httpRequest.GetResponseWithAuth(user).ContinueWith(responseTask =>
                 {
                     var response = responseTask.Result;
                     if (response.ErrorCode == 0)
@@ -243,17 +243,17 @@ namespace Microsoft.Xbox.Services.TitleStorage
                 }
 
                 var subpathAndQueryResult = this.GetTitleStorageBlobMetadataUploadSubpath(user, blobMetadata, continuationToken, isFinalBlock);
-                var httpRequest = this.HttpRequestHandler.Create(HttpMethod.Put, TitleStorageBaseUri.ToString(), subpathAndQueryResult);
+                var httpRequest = XboxLiveHttpRequest.Create(HttpMethod.Put, TitleStorageBaseUri.ToString(), subpathAndQueryResult);
                 httpRequest.ContractVersion = TitleStorageApiContract;
                 httpRequest.ContentType = ContentTypeHeaderValue;
                 httpRequest.longHttpCall = true;
 
-                this.SetEtagHeader(httpRequest, blobMetadata.ETag, blobQueryProperties.ETagMatchCondition);
+                SetEtagHeader(httpRequest, blobMetadata.ETag, blobQueryProperties.ETagMatchCondition);
                 var encoding = Encoding.UTF8;
                 httpRequest.RequestBody = encoding.GetString(dataChunk.ToArray());
 
                 var localIsFinalBlock = isFinalBlock;
-                this.HttpRequestHandler.GetResponseWithAuth(httpRequest, user).ContinueWith(responseTask =>
+                httpRequest.GetResponseWithAuth(user).ContinueWith(responseTask =>
                 {
                     var json = responseTask.Result.ResponseBodyString;
                     continuationToken = string.Empty;
@@ -298,9 +298,9 @@ namespace Microsoft.Xbox.Services.TitleStorage
                 maxItems,
                 continuationToken);
 
-            var httpRequest = this.HttpRequestHandler.Create(HttpMethod.Get, TitleStorageBaseUri.ToString(), subPathAndQueryResult);
+            var httpRequest = XboxLiveHttpRequest.Create(HttpMethod.Get, TitleStorageBaseUri.ToString(), subPathAndQueryResult);
             httpRequest.ContractVersion = TitleStorageApiContract;
-            return this.HttpRequestHandler.GetResponseWithAuth(httpRequest, user)
+            return httpRequest.GetResponseWithAuth(user)
                 .ContinueWith(
                 responseTask => this.HandleBlobMetadataResult(user, responseTask, storageType, blobPath));
         }
@@ -454,16 +454,16 @@ namespace Microsoft.Xbox.Services.TitleStorage
         }
 
 
-        internal void SetEtagHeader(
+        internal static void SetEtagHeader(
             XboxLiveHttpRequest httpRequest, string eTag, TitleStorageETagMatchCondition eTagMatchCondition)
         {
             if (eTagMatchCondition != TitleStorageETagMatchCondition.NotUsed)
             {
                 if (!string.IsNullOrEmpty(eTag))
                 {
-                    this.HttpRequestHandler.SetCustomHeader(httpRequest, ETagHeaderName, eTag);
+                    httpRequest.SetCustomHeader(ETagHeaderName, eTag);
                     var headerToUse = eTagMatchCondition == TitleStorageETagMatchCondition.IfMatch ? IfMatchHeaderName : IfNoneHeaderName;
-                    this.HttpRequestHandler.SetCustomHeader(httpRequest, headerToUse, eTag);
+                    httpRequest.SetCustomHeader(headerToUse, eTag);
                 }
             }
         }
