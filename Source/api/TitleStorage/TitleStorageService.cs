@@ -44,7 +44,6 @@ namespace Microsoft.Xbox.Services.TitleStorage
         /// </summary>
         internal TitleStorageService(IHttpRequestHandler httpRequestHandler, XboxLiveAppConfiguration appConfiguration)
         {
-            this.appConfig = XboxLive.Instance.AppConfig;
             this.HttpRequestHandler = httpRequestHandler;
             this.appConfig = appConfiguration;
         }
